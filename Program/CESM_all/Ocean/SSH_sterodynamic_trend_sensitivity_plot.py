@@ -1,4 +1,4 @@
-#Program plots the DSL and SDSL components for region 1 and 2
+#Program determines the SDSL trend over a shorter period of time
 
 from pylab import *
 import numpy
@@ -15,6 +15,7 @@ directory_cesm 		    = '../../../Data/HR-CESM/'
 directory_cesm_low          = '../../../Data/LR-CESM/'
 directory_cesm_control 	    = '../../../Data/HR-CESM_Control/'
 directory_cesm_low_control  = '../../../Data/LR-CESM_Control/'
+
 
 def ReadinData(filename):
 	"""Reads-in the data"""
@@ -152,7 +153,6 @@ ssh_year_1_cesm					= ssh_year_1_cesm - ssh_year_1_cesm[0]
 ssh_year_2_cesm					= ssh_year_2_cesm - ssh_year_2_cesm[0]	
 
 #-----------------------------------------------------------------------------------------
-
 time_cesm_low, ssh_1_cesm_low, ssh_2_cesm_low	= ReadinData(directory_cesm_low+'/Ocean/SSH_regions.nc')
 time_year_cesm_low, ssh_year_1_cesm_low		= YearlyConverter(time_cesm_low, ssh_1_cesm_low, month_start, month_end)
 time_year_cesm_low, ssh_year_2_cesm_low		= YearlyConverter(time_cesm_low, ssh_2_cesm_low, month_start, month_end)
@@ -164,19 +164,6 @@ ssh_year_1_cesm_low				= ssh_year_1_cesm_low - ssh_global_year_cesm_low
 ssh_year_2_cesm_low				= ssh_year_2_cesm_low - ssh_global_year_cesm_low
 ssh_year_1_cesm_low				= ssh_year_1_cesm_low - ssh_year_1_cesm_low[0]
 ssh_year_2_cesm_low				= ssh_year_2_cesm_low - ssh_year_2_cesm_low[0]
-
-#-----------------------------------------------------------------------------------------
-
-print '-----------------------------------------------------------------------------------------'
-print 'HR-CESM DSL 1:', SignificantTrend(time_year_cesm, ssh_year_1_cesm)[0] * 10.0, '+/-', stats.linregress(np.arange(101), ssh_year_1_cesm)[4] * 10.0, ', sig = ', SignificantTrend(time_year_cesm, ssh_year_1_cesm)[2]
-print 'HR-CESM DSL 2:', SignificantTrend(time_year_cesm, ssh_year_2_cesm)[0] * 10.0, '+/-', stats.linregress(np.arange(101), ssh_year_2_cesm)[4] * 10.0, ', sig = ', SignificantTrend(time_year_cesm, ssh_year_2_cesm)[2]
-'-----------------------------------------------------------------------------------------'
-print
-print '-----------------------------------------------------------------------------------------'
-print 'LR-CESM DSL 1:', SignificantTrend(time_year_cesm, ssh_year_1_cesm_low)[0] * 10.0, '+/-', stats.linregress(np.arange(101), ssh_year_1_cesm_low)[4] * 10.0, ', sig = ', SignificantTrend(time_year_cesm, ssh_year_1_cesm_low)[2]
-print 'LR-CESM DSL 2:', SignificantTrend(time_year_cesm, ssh_year_2_cesm_low)[0] * 10.0, '+/-', stats.linregress(np.arange(101), ssh_year_2_cesm_low)[4] * 10.0, ', sig = ', SignificantTrend(time_year_cesm, ssh_year_2_cesm_low)[2]
-'-----------------------------------------------------------------------------------------'
-
 #-----------------------------------------------------------------------------------------
 
 HEAT_data 	                                = netcdf.Dataset(directory_cesm+'Ocean/SSH_global_steric.nc', 'r')
@@ -186,8 +173,9 @@ steric_global_cesm                              = HEAT_data.variables['SSH'][:] 
 
 HEAT_data.close()
 
-time_year_cesm, steric_global_year_cesm	        = YearlyConverter(time, steric_global_cesm, month_start, month_end)
+time_year, steric_global_year_cesm	        = YearlyConverter(time, steric_global_cesm, month_start, month_end)
 steric_global_year_cesm			        = steric_global_year_cesm - steric_global_year_cesm[0]
+
 
 #-----------------------------------------------------------------------------------------
 
@@ -205,6 +193,9 @@ steric_global_year_cesm_control			= steric_global_year_cesm_control - steric_glo
 steric_global_year_cesm		                = steric_global_year_cesm - steric_global_year_cesm_control
 ssh_total_year_1_cesm	                        = ssh_year_1_cesm + steric_global_year_cesm	
 ssh_total_year_2_cesm	                        = ssh_year_2_cesm + steric_global_year_cesm
+
+#Determine the trend over the entire period (2000 - 21000)
+trend_ssh_year, base_ssh_year	                = polyfit(np.arange(len(time_year)), steric_global_year_cesm, 1)
 
 #-----------------------------------------------------------------------------------------
 
@@ -235,29 +226,82 @@ steric_global_year_cesm_low		        = steric_global_year_cesm_low - steric_glob
 ssh_total_year_1_cesm_low	                = ssh_year_1_cesm_low + steric_global_year_cesm_low	
 ssh_total_year_2_cesm_low	                = ssh_year_2_cesm_low + steric_global_year_cesm_low
 
-#-----------------------------------------------------------------------------------------
-
-sterodynamic_trend_cesm_1	        = SignificantTrend(time_year_cesm, ssh_total_year_1_cesm)[0] * 10.0 / 1.8
-sterodynamic_trend_cesm_2	        = SignificantTrend(time_year_cesm, ssh_total_year_2_cesm)[0] * 10.0 / 1.8
-sterodynamic_trend_cesm_low_1        = SignificantTrend(time_year_cesm, ssh_total_year_1_cesm_low)[0] * 10.0 / 1.8
-sterodynamic_trend_cesm_low_2	= SignificantTrend(time_year_cesm, ssh_total_year_2_cesm_low)[0] * 10.0 / 1.8
+#Determine the trend over the entire period (2000 - 21000)
+trend_ssh_year_low, base_ssh_year_low	= polyfit(np.arange(len(time_year)), steric_global_year_cesm_low, 1)
 
 #-----------------------------------------------------------------------------------------
 
+dynamic_trend_cesm_1	    = SignificantTrend(time_year, ssh_total_year_1_cesm)[0] / trend_ssh_year
+dynamic_trend_cesm_2	    = SignificantTrend(time_year, ssh_total_year_2_cesm)[0]  / trend_ssh_year
+dynamic_trend_cesm_low_1    = SignificantTrend(time_year, ssh_total_year_1_cesm_low)[0]  / trend_ssh_year_low
+dynamic_trend_cesm_low_2    = SignificantTrend(time_year, ssh_total_year_2_cesm_low)[0]  / trend_ssh_year_low
+
+
+	
+#-----------------------------------------------------------------------------------------
+
+section_length_min	= 25
+trend_sections_1	= np.ones((len(time_year), len(time_year)))
+trend_sections_2	= np.ones((len(time_year), len(time_year)))
+trend_sections_1_low	= np.ones((len(time_year), len(time_year)))
+trend_sections_2_low	= np.ones((len(time_year), len(time_year)))
+
+
+for year_i in range(len(time_year) - section_length_min + 1):
+	for year_j in range(year_i + section_length_min - 1, len(time_year)):
+
+		#High resolution
+		ssh_1, ssh_2, ssh_steric	= ssh_year_1_cesm[year_i:year_j + 1], ssh_year_2_cesm[year_i:year_j + 1], steric_global_year_cesm[year_i:year_j + 1]
+
+		#Determine the trends
+		trend_1, base			= polyfit(np.arange(len(ssh_1)), ssh_1 + ssh_steric, 1) * 10.0
+		trend_2, base			= polyfit(np.arange(len(ssh_1)), ssh_2 + ssh_steric, 1) * 10.0
+		trend_steric, base		= polyfit(np.arange(len(ssh_1)), ssh_steric, 1) * 10.0
+
+		trend_sections_1[year_i, year_j]	= trend_1 / trend_steric
+		trend_sections_2[year_i, year_j]	= trend_2 / trend_steric
+
+		#Low resolution
+		ssh_1, ssh_2, ssh_steric	= ssh_year_1_cesm_low[year_i:year_j + 1], ssh_year_2_cesm_low[year_i:year_j + 1], steric_global_year_cesm_low[year_i:year_j + 1]
+
+		#Determine the trends
+		trend_1, base			= polyfit(np.arange(len(ssh_1)), ssh_1 + ssh_steric, 1) * 10.0
+		trend_2, base			= polyfit(np.arange(len(ssh_1)), ssh_2 + ssh_steric, 1) * 10.0
+		trend_steric, base		= polyfit(np.arange(len(ssh_1)), ssh_steric, 1) * 10.0
+
+		trend_sections_1_low[year_i, year_j]	= trend_1 / trend_steric
+		trend_sections_2_low[year_i, year_j]	= trend_2 / trend_steric
+#-----------------------------------------------------------------------------------------
 fig, ax	= subplots()
 
-HR_CESM_SSH_1_graph	    = ax.plot_date(time_year_cesm, ssh_year_1_cesm, '-b', linewidth = 2.0, label = '$\eta_{M}^{1}$')
-HR_CESM_SSH_2_graph	    = ax.plot_date(time_year_cesm, ssh_year_2_cesm, '--b', linewidth = 2.0, label = '$\eta_{M}^{2}$')
-HR_CESM_SSH_total_1_graph   = ax.plot_date(time_year_cesm, ssh_total_year_1_cesm, '-k', linewidth = 2.0, label = '$\eta^{1}$')
-HR_CESM_SSH_total_2_graph   = ax.plot_date(time_year_cesm, ssh_total_year_2_cesm, '--k', linewidth = 2.0, label = '$\eta^{2}$')
-HR_CESM_SSH_global_graph    = ax.plot_date(time_year_cesm, steric_global_year_cesm, '-r', linewidth = 3.0, label = '$\eta_{S}^{g}$')
+levels	= np.arange(-1, 3.01, 0.05)
+levels	= np.delete(levels, (fabs(levels - 1.0)).argmin())
 
-ax.set_xlabel('Model year')
-ax.set_ylabel('Sea-level change (cm)')
-ax.set_ylim(-10, 25)
-ax.grid()
+x, y	= np.meshgrid(time_year_cesm, time_year_cesm)
+CS	= contourf(x, y, trend_sections_1, levels, extend = 'both', cmap = 'bwr')
+cbar	= colorbar(CS, ticks = np.arange(-1, 3.01, 1))
+cbar.set_label('Normalised SDSL trend')
+ax.xaxis_date()
+ax.yaxis_date()
 
-ax.set_xticks([	datetime.datetime(2000, 1, 1).toordinal(),
+ax.set_xlabel('Model year trend end')
+ax.set_ylabel('Model year trend start')
+
+ax.set_title('a) HR-CESM, region 1')
+
+ax2 	= fig.add_axes([0.2, 0.62, 0.5, 0.2])
+
+index	                = np.arange(0, len(time_year_cesm) - section_length_min)
+HR_CESM_SSH_1_graph	= ax2.plot_date(time_year_cesm[:len(index)], trend_sections_1[index, index + section_length_min], '-r', linewidth = 2.0)
+HR_CESM_SSH_mean_graph	= ax2.axhline(y = dynamic_trend_cesm_1, color = 'r', linestyle = '--', linewidth = 2.0)
+
+ax2.set_xlabel('Model year trend start')
+ax2.set_ylabel('Normalised SDSL trend')
+ax2.set_ylim(-1, 3)
+ax2.set_title('Fixed period of 25 years')
+ax2.grid()
+
+ax2.set_xticks([datetime.datetime(2000, 1, 1).toordinal(),
 		datetime.datetime(2010, 1, 1).toordinal(),
 		datetime.datetime(2020, 1, 1).toordinal(),
 		datetime.datetime(2030, 1, 1).toordinal(), 
@@ -265,34 +309,38 @@ ax.set_xticks([	datetime.datetime(2000, 1, 1).toordinal(),
 		datetime.datetime(2050, 1, 1).toordinal(), 
 		datetime.datetime(2060, 1, 1).toordinal(),
 		datetime.datetime(2070, 1, 1).toordinal(),
-		datetime.datetime(2080, 1, 1).toordinal(),
-		datetime.datetime(2090, 1, 1).toordinal(),
-		datetime.datetime(2100, 1, 1).toordinal()])
+		datetime.datetime(2080, 1, 1).toordinal()])
 
-ax.set_title('a) HR-CESM')
-
-graphs	      = HR_CESM_SSH_1_graph + HR_CESM_SSH_2_graph + HR_CESM_SSH_global_graph + HR_CESM_SSH_total_1_graph + HR_CESM_SSH_total_2_graph
-
-legend_labels = [l.get_label() for l in graphs]
-ax.legend(graphs, legend_labels, loc='upper left',
- 		  ncol=1, fancybox=True, shadow=False, numpoints = 1)
+ax2.set_yticks(np.arange(-1, 3.01, 1))
 
 #-----------------------------------------------------------------------------------------
-
 fig, ax	= subplots()
 
-LR_CESM_SSH_1_graph		= ax.plot_date(time_year_cesm_low, ssh_year_1_cesm_low, '-b', linewidth = 2.0, label = '$\eta_{M}^{1}$')
-LR_CESM_SSH_2_graph		= ax.plot_date(time_year_cesm_low, ssh_year_2_cesm_low, '--b', linewidth = 2.0, label = '$\eta_{M}^{2}$')
-LR_CESM_SSH_total_1_graph	= ax.plot_date(time_year_cesm_low, ssh_total_year_1_cesm_low, '-k', linewidth = 2.0, label = '$\eta^{1}$')
-LR_CESM_SSH_total_2_graph	= ax.plot_date(time_year_cesm_low, ssh_total_year_2_cesm_low, '--k', linewidth = 2.0, label = '$\eta^{2}$')
-LR_CESM_SSH_global_graph	= ax.plot_date(time_year_cesm_low, steric_global_year_cesm_low, '-r', linewidth = 3.0, label = '$\eta_{S}^{g}$')
+x, y	= np.meshgrid(time_year_cesm, time_year_cesm)
+CS	= contourf(x, y, trend_sections_2, levels, extend = 'both', cmap = 'bwr')
+cbar	= colorbar(CS, ticks = np.arange(-1, 3.01, 1))
+cbar.set_label('Normalised SDSL trend')
+ax.xaxis_date()
+ax.yaxis_date()
 
-ax.set_xlabel('Model year')
-ax.set_ylabel('Sea-level change (cm)')
-ax.set_ylim(-10, 25)
-ax.grid()
+ax.set_xlabel('Model year trend end')
+ax.set_ylabel('Model year trend start')
 
-ax.set_xticks([	datetime.datetime(2000, 1, 1).toordinal(),
+ax.set_title('c) HR-CESM, region 2')
+
+ax2 	= fig.add_axes([0.2, 0.62, 0.5, 0.2])
+
+index	                = np.arange(0, len(time_year_cesm) - section_length_min)
+HR_CESM_SSH_1_graph	= ax2.plot_date(time_year_cesm[:len(index)], trend_sections_2[index, index + section_length_min], '-r', linewidth = 2.0)
+HR_CESM_SSH_mean_graph	= ax2.axhline(y = dynamic_trend_cesm_2, color = 'r', linestyle = '--', linewidth = 2.0)
+
+ax2.set_xlabel('Model year trend start')
+ax2.set_ylabel('Normalised SDSL trend')
+ax2.set_ylim(-1, 3)
+ax2.set_title('Fixed period of 25 years')
+ax2.grid()
+
+ax2.set_xticks([datetime.datetime(2000, 1, 1).toordinal(),
 		datetime.datetime(2010, 1, 1).toordinal(),
 		datetime.datetime(2020, 1, 1).toordinal(),
 		datetime.datetime(2030, 1, 1).toordinal(), 
@@ -300,17 +348,86 @@ ax.set_xticks([	datetime.datetime(2000, 1, 1).toordinal(),
 		datetime.datetime(2050, 1, 1).toordinal(), 
 		datetime.datetime(2060, 1, 1).toordinal(),
 		datetime.datetime(2070, 1, 1).toordinal(),
-		datetime.datetime(2080, 1, 1).toordinal(),
-		datetime.datetime(2090, 1, 1).toordinal(),
-		datetime.datetime(2100, 1, 1).toordinal()])
+		datetime.datetime(2080, 1, 1).toordinal()])
 
-ax.set_title('b) LR-CESM')
+ax2.set_yticks(np.arange(-1, 3.01, 1))
 
-graphs	      = LR_CESM_SSH_1_graph + LR_CESM_SSH_2_graph + LR_CESM_SSH_global_graph + LR_CESM_SSH_total_1_graph + LR_CESM_SSH_total_2_graph
+#-----------------------------------------------------------------------------------------
+fig, ax	= subplots()
 
-legend_labels = [l.get_label() for l in graphs]
-ax.legend(graphs, legend_labels, loc='upper left',
- 		  ncol=1, fancybox=True, shadow=False, numpoints = 1)
+x, y	= np.meshgrid(time_year_cesm, time_year_cesm)
+CS	= contourf(x, y, trend_sections_1_low, levels, extend = 'both', cmap = 'bwr')
+cbar	= colorbar(CS, ticks = np.arange(-1, 3.01, 1))
+cbar.set_label('Normalised SDSL trend')
+ax.xaxis_date()
+ax.yaxis_date()
 
+ax.set_xlabel('Model year trend end')
+ax.set_ylabel('Model year trend start')
+
+ax.set_title('b) LR-CESM, region 1')
+
+ax2 	= fig.add_axes([0.2, 0.62, 0.5, 0.2])
+
+index	                = np.arange(0, len(time_year_cesm) - section_length_min)
+LR_CESM_SSH_1_graph	= ax2.plot_date(time_year_cesm[:len(index)], trend_sections_1_low[index, index + section_length_min], '-r', linewidth = 2.0)
+LR_CESM_SSH_mean_graph	= ax2.axhline(y = dynamic_trend_cesm_low_1, color = 'r', linestyle = '--', linewidth = 2.0)
+
+ax2.set_xlabel('Model year trend start')
+ax2.set_ylabel('Normalised SDSL trend')
+ax2.set_ylim(-1, 3)
+ax2.set_title('Fixed period of 25 years')
+ax2.grid()
+
+ax2.set_xticks([datetime.datetime(2000, 1, 1).toordinal(),
+		datetime.datetime(2010, 1, 1).toordinal(),
+		datetime.datetime(2020, 1, 1).toordinal(),
+		datetime.datetime(2030, 1, 1).toordinal(), 
+		datetime.datetime(2040, 1, 1).toordinal(),
+		datetime.datetime(2050, 1, 1).toordinal(), 
+		datetime.datetime(2060, 1, 1).toordinal(),
+		datetime.datetime(2070, 1, 1).toordinal(),
+		datetime.datetime(2080, 1, 1).toordinal()])
+
+ax2.set_yticks(np.arange(-1, 3.01, 1))
+
+#-----------------------------------------------------------------------------------------
+fig, ax	= subplots()
+
+x, y	= np.meshgrid(time_year_cesm, time_year_cesm)
+CS	= contourf(x, y, trend_sections_2_low, levels, extend = 'both', cmap = 'bwr')
+cbar	= colorbar(CS, ticks = np.arange(-1, 3.01, 1))
+cbar.set_label('Normalised SDSL trend')
+ax.xaxis_date()
+ax.yaxis_date()
+
+ax.set_xlabel('Model year trend end')
+ax.set_ylabel('Model year trend start')
+
+ax.set_title('d) LR-CESM, region 2')
+
+ax2 	= fig.add_axes([0.2, 0.62, 0.5, 0.2])
+
+index	                = np.arange(0, len(time_year_cesm) - section_length_min)
+LR_CESM_SSH_1_graph	= ax2.plot_date(time_year_cesm[:len(index)], trend_sections_2_low[index, index + section_length_min], '-r', linewidth = 2.0)
+LR_CESM_SSH_mean_graph	= ax2.axhline(y = dynamic_trend_cesm_low_2, color = 'r', linestyle = '--', linewidth = 2.0)
+
+ax2.set_xlabel('Model year trend start')
+ax2.set_ylabel('Normalised SDSL trend')
+ax2.set_ylim(-1, 3)
+ax2.set_title('Fixed period of 25 years')
+ax2.grid()
+
+ax2.set_xticks([datetime.datetime(2000, 1, 1).toordinal(),
+		datetime.datetime(2010, 1, 1).toordinal(),
+		datetime.datetime(2020, 1, 1).toordinal(),
+		datetime.datetime(2030, 1, 1).toordinal(), 
+		datetime.datetime(2040, 1, 1).toordinal(),
+		datetime.datetime(2050, 1, 1).toordinal(), 
+		datetime.datetime(2060, 1, 1).toordinal(),
+		datetime.datetime(2070, 1, 1).toordinal(),
+		datetime.datetime(2080, 1, 1).toordinal()])
+
+ax2.set_yticks(np.arange(-1, 3.01, 1))
 
 show()

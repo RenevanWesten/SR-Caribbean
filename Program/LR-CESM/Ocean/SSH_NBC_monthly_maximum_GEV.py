@@ -140,6 +140,16 @@ ssh		= HEAT_data.variables['SSH'][:]
 
 HEAT_data.close()
 
+#Get the globally-averaged sea surface height
+fh 		= netcdf.Dataset(directory+'Ocean/SSH_global.nc', 'r')
+ssh_global	= fh.variables['SSH_global'][:]		#Global Sea surface height (cm)
+
+fh.close()
+
+ssh		= ssh - ssh_global
+
+#-----------------------------------------------------------------------------------------
+
 time_year, ssh_year	= YearlyConverter(time_all, ssh)
 number_years		= len(time_all) / 12 + 1 - section
 
@@ -195,6 +205,16 @@ ssh		= HEAT_data.variables['SSH'][:]
 
 HEAT_data.close()
 
+#Get the globally-averaged sea surface height
+fh 		= netcdf.Dataset(directory+'Ocean/SSH_global.nc', 'r')
+ssh_global	= fh.variables['SSH_global'][:]		#Global Sea surface height (cm)
+
+fh.close()
+
+ssh		= ssh - ssh_global
+
+#-----------------------------------------------------------------------------------------
+
 print return_level_all[0], return_level_all[70]
 #-----------------------------------------------------------------------------------------
 
@@ -209,7 +229,7 @@ graph_return_level	= plot_date([time_year[35], time_year[64]], [return_level_all
 graph_return_level	= plot_date([time_year[70], time_year[99]], [return_level_all[70], return_level_all[70]], '-r', linewidth = 3.0, label = '$\eta_M^{Max}$ 1:5 year')
 
 ax.set_xlabel('Model year')
-ax.set_ylabel('Sea surface height (cm)')
+ax.set_ylabel('Dynamic sea level (cm)')
 ax.set_ylim(0, 55)
 ax.grid()
 
@@ -271,7 +291,7 @@ ax.set_xlim(1, 1000)
 ax.set_ylim(0, 55)
 ax.grid(axis = 'y')
 ax.set_xlabel('Return time (months)')
-ax.set_ylabel('Sea surface height (cm)')
+ax.set_ylabel('Dynamic sea level (cm)')
 ax.set_xscale('log')
 
 ax2 = ax.twiny()

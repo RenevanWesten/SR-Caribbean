@@ -1,4 +1,4 @@
-#Program determines the DSL trend over the two regions
+#Program determines the DSL and SDSL trend over the two regions
 
 from pylab import *
 import numpy
@@ -30,7 +30,18 @@ def ReadinData(filename):
 
 	return time, ssh_1, ssh_2
 
-def ReadinDataGlobal(filename):
+def ReadinDataGlobalMean(filename):
+	"""Reads-in the global mean sea surface height (cm)"""
+	HEAT_data 		= netcdf.Dataset(filename, 'r')
+
+	time			= HEAT_data.variables['time'][:] 
+	ssh_global		= HEAT_data.variables['SSH_global'][:] 						
+
+	HEAT_data.close()
+
+	return time, ssh_global
+	
+def ReadinDataGlobalSteric(filename):
 	"""Reads-in the global data"""
 	HEAT_data 		= netcdf.Dataset(filename, 'r')
 
@@ -103,25 +114,33 @@ models.insert(2, 'CanESM5')
 
 for model_i in range(len(models)):
 	#Get the model name for each file
-	file_ssh		= directory_CMIP6+models[model_i]+'/Ocean/SSH_regions.nc'
-	file_ssh_global		= directory_CMIP6+models[model_i]+'/Ocean/SSH_global_steric.nc'
-	file_ssh_global_control	= directory_CMIP6+models[model_i]+'/Ocean/SSH_global_steric_Control.nc'
+	file_ssh		        = directory_CMIP6+models[model_i]+'/Ocean/SSH_regions.nc'
+	file_ssh_global		        = directory_CMIP6+models[model_i]+'/Ocean/SSH_global.nc'
+	file_ssh_global_steric	        = directory_CMIP6+models[model_i]+'/Ocean/SSH_global_steric.nc'
+	file_ssh_global_steric_control  = directory_CMIP6+models[model_i]+'/Ocean/SSH_global_steric_Control.nc'
 
-	time, ssh_1, ssh_2			= ReadinData(file_ssh)
-	time, ssh_global			= ReadinDataGlobal(file_ssh_global)
-	time, ssh_global_control		= ReadinDataGlobal(file_ssh_global_control)
+
+	time, ssh_1, ssh_2		= ReadinData(file_ssh)
+	time, ssh_global		= ReadinDataGlobalMean(file_ssh_global)
+	time, ssh_global_steric		= ReadinDataGlobalSteric(file_ssh_global_steric)
+	time, ssh_global_steric_control	= ReadinDataGlobalSteric(file_ssh_global_steric_control)
 
 	#-----------------------------------------------------------------------------------------
-	time_year, ssh_year_1			= YearlyConverter(time, ssh_1, month_start, month_end)
-	time_year, ssh_year_2			= YearlyConverter(time, ssh_2, month_start, month_end)
-	time_year, ssh_global_year		= YearlyConverter(time, ssh_global, month_start, month_end)
-	time_year, ssh_global_control_year	= YearlyConverter(time, ssh_global_control, month_start, month_end)
+	time_year, ssh_year_1			   = YearlyConverter(time, ssh_1, month_start, month_end)
+	time_year, ssh_year_2			   = YearlyConverter(time, ssh_2, month_start, month_end)
+	time_year, ssh_global_year		   = YearlyConverter(time, ssh_global, month_start, month_end)
+	time_year, ssh_global_steric_year	   = YearlyConverter(time, ssh_global_steric, month_start, month_end)
+	time_year, ssh_global_steric_control_year  = YearlyConverter(time, ssh_global_steric_control, month_start, month_end)
+
+        #Remove the global mean
+        ssh_year_1                      = ssh_year_1 - ssh_global_year
+        ssh_year_2                      = ssh_year_2 - ssh_global_year
 
 	#Set first year to 0 and remove drift
 	ssh_year_1			= ssh_year_1 - ssh_year_1[0]
 	ssh_year_2			= ssh_year_2 - ssh_year_2[0]
-	ssh_global_control_year		= ssh_global_control_year - ssh_global_control_year[0]
-	ssh_global_year			= ssh_global_year - ssh_global_year[0] - ssh_global_control_year
+	ssh_global_steric_control_year	= ssh_global_steric_control_year - ssh_global_steric_control_year[0]
+	ssh_global_steric_year		= ssh_global_steric_year - ssh_global_steric_year[0] - ssh_global_steric_control_year
 
 	if model_i == 0:
 		#For the ensemble mean
@@ -132,10 +151,10 @@ for model_i in range(len(models)):
 
 	ssh_all_1[model_i]		= ssh_year_1
 	ssh_all_2[model_i]		= ssh_year_2
-	ssh_global_all[model_i]	        = ssh_global_year
-	ssh_global_control_all[model_i]	= ssh_global_control_year
+	ssh_global_all[model_i]	        = ssh_global_steric_year
+	ssh_global_control_all[model_i]	= ssh_global_steric_control_year
 
-#Get the dynamical sea level (SSH + steric)
+#Get the sterodynamical sea level (DSL + steric)
 ssh_total_1		= ssh_all_1 + ssh_global_all
 ssh_total_2		= ssh_all_2 + ssh_global_all	
 
@@ -152,6 +171,11 @@ time_cesm, ssh_1_cesm, ssh_2_cesm		= ReadinData(directory_cesm+'/Ocean/SSH_regio
 time_year_cesm, ssh_year_1_cesm			= YearlyConverter(time_cesm, ssh_1_cesm, month_start, month_end)
 time_year_cesm, ssh_year_2_cesm			= YearlyConverter(time_cesm, ssh_2_cesm, month_start, month_end)
 
+time_cesm, ssh_global_cesm			= ReadinDataGlobalMean(directory_cesm+'Ocean/SSH_global.nc')
+time_year_cesm, ssh_global_year_cesm		= YearlyConverter(time_cesm, ssh_global_cesm, month_start, month_end)
+
+ssh_year_1_cesm					= ssh_year_1_cesm - ssh_global_year_cesm
+ssh_year_2_cesm					= ssh_year_2_cesm - ssh_global_year_cesm
 ssh_year_1_cesm					= ssh_year_1_cesm - ssh_year_1_cesm[0]
 ssh_year_2_cesm					= ssh_year_2_cesm - ssh_year_2_cesm[0]
 #-----------------------------------------------------------------------------------------	
@@ -159,37 +183,42 @@ time_cesm_low, ssh_1_cesm_low, ssh_2_cesm_low	= ReadinData(directory_cesm_low+'/
 time_year_cesm_low, ssh_year_1_cesm_low		= YearlyConverter(time_cesm_low, ssh_1_cesm_low, month_start, month_end)
 time_year_cesm_low, ssh_year_2_cesm_low		= YearlyConverter(time_cesm_low, ssh_2_cesm_low, month_start, month_end)
 
+time_cesm_low, ssh_global_cesm_low		= ReadinDataGlobalMean(directory_cesm_low+'Ocean/SSH_global.nc')
+time_year_cesm_low, ssh_global_year_cesm_low	= YearlyConverter(time_cesm_low, ssh_global_cesm_low, month_start, month_end)
+
+ssh_year_1_cesm_low				= ssh_year_1_cesm_low - ssh_global_year_cesm_low
+ssh_year_2_cesm_low				= ssh_year_2_cesm_low - ssh_global_year_cesm_low
 ssh_year_1_cesm_low				= ssh_year_1_cesm_low - ssh_year_1_cesm_low[0]
 ssh_year_2_cesm_low				= ssh_year_2_cesm_low - ssh_year_2_cesm_low[0]
 
 #Get the globally averaged steric sea level rise
 #-----------------------------------------------------------------------------------------
 
-time, ssh				                = ReadinDataGlobal(directory_cesm+'Ocean/SSH_global_steric.nc')
+time, ssh				                = ReadinDataGlobalSteric(directory_cesm+'Ocean/SSH_global_steric.nc')
 time_year_cesm, ssh_global_cesm_year	                = YearlyConverter(time, ssh, month_start, month_end)
 ssh_global_cesm_year			                = ssh_global_cesm_year - ssh_global_cesm_year[0]
 #-----------------------------------------------------------------------------------------
-time, ssh_low				                = ReadinDataGlobal(directory_cesm_low+'Ocean/SSH_global_steric.nc')
+time, ssh_low				                = ReadinDataGlobalSteric(directory_cesm_low+'Ocean/SSH_global_steric.nc')
 time_year_low, ssh_global_cesm_low_year	                = YearlyConverter(time, ssh_low, month_start, month_end)
 ssh_global_cesm_low_year		                = ssh_global_cesm_low_year - ssh_global_cesm_low_year[0]
 #-----------------------------------------------------------------------------------------
-time, ssh				                = ReadinDataGlobal(directory_cesm_control+'Ocean/SSH_global_steric.nc')
+time, ssh				                = ReadinDataGlobalSteric(directory_cesm_control+'Ocean/SSH_global_steric.nc')
 time_year_cesm_control, ssh_global_cesm_control_year	= YearlyConverter(time, ssh, month_start, month_end)
 ssh_global_cesm_control_year			        = ssh_global_cesm_control_year - ssh_global_cesm_control_year[0]
 #-----------------------------------------------------------------------------------------
-time, ssh_low				                = ReadinDataGlobal(directory_cesm_low_control+'Ocean/SSH_global_steric.nc')
+time, ssh_low				                = ReadinDataGlobalSteric(directory_cesm_low_control+'Ocean/SSH_global_steric.nc')
 time_year_low, ssh_global_cesm_low_control_year	        = YearlyConverter(time, ssh_low, month_start, month_end)
 ssh_global_cesm_low_control_year		        = ssh_global_cesm_low_control_year - ssh_global_cesm_low_control_year[0]
 #-----------------------------------------------------------------------------------------
 
 
 #Remove drift from models
-ssh_global_cesm_year		                        = ssh_global_cesm_year - ssh_global_cesm_control_year
-ssh_global_cesm_low_year	                        = ssh_global_cesm_low_year - ssh_global_cesm_low_control_year
+ssh_global_cesm_year	        = ssh_global_cesm_year - ssh_global_cesm_control_year
+ssh_global_cesm_low_year        = ssh_global_cesm_low_year - ssh_global_cesm_low_control_year
 
 #Retain the global trend (in mm / yr)
-trend_ssh_global_cesm, base_ssh_global_cesm		= polyfit(np.arange(len(time_year)), ssh_global_cesm_year, 1) * 10.0
-trend_ssh_global_cesm_low, base_ssh_global_cesm_low	= polyfit(np.arange(len(time_year)), ssh_global_cesm_low_year, 1) * 10.0
+trend_ssh_global_cesm, base	= polyfit(np.arange(len(time_year)), ssh_global_cesm_year, 1) * 10.0
+trend_ssh_global_cesm_low, base	= polyfit(np.arange(len(time_year)), ssh_global_cesm_low_year, 1) * 10.0
 
 #Add the global steric effect
 ssh_total_year_1_cesm		= ssh_year_1_cesm + ssh_global_cesm_year
@@ -197,37 +226,37 @@ ssh_total_year_2_cesm		= ssh_year_2_cesm + ssh_global_cesm_year
 ssh_total_year_1_cesm_low	= ssh_year_1_cesm_low + ssh_global_cesm_low_year	
 ssh_total_year_2_cesm_low	= ssh_year_2_cesm_low + ssh_global_cesm_low_year	
 
-ssh_trend_all_1		= ma.masked_all(len(models))
-ssh_trend_all_2		= ma.masked_all(len(models))
-ssh_dynamic_trend_all_1	= ma.masked_all(len(models))
-ssh_dynamic_trend_all_2	= ma.masked_all(len(models))
-ssh_global_trend	= ma.masked_all(len(models))
+ssh_trend_all_1		        = ma.masked_all(len(models))
+ssh_trend_all_2		        = ma.masked_all(len(models))
+ssh_sterodynamic_trend_all_1	= ma.masked_all(len(models))
+ssh_sterodynamic_trend_all_2	= ma.masked_all(len(models))
+ssh_global_trend	        = ma.masked_all(len(models))
 
 for model_i in range(len(models)):
 	#Determine the trend (mm / year) for the regions
-	trend_ssh_1, base_ssh_1			= polyfit(np.arange(len(time_year)), ssh_all_1[model_i], 1) * 10.0
-	trend_ssh_2, base_ssh_2			= polyfit(np.arange(len(time_year)), ssh_all_2[model_i], 1) * 10.0
-	trend_ssh_dynamic_1, base_ssh_dynamic_1	= polyfit(np.arange(len(time_year)), ssh_total_1[model_i], 1) * 10.0
-	trend_ssh_dynamic_2, base_ssh_dynamic_2	= polyfit(np.arange(len(time_year)), ssh_total_2[model_i], 1) * 10.0
-	trend_ssh_global, base_ssh_global	= polyfit(np.arange(len(time_year)), ssh_global_all[model_i], 1) * 10.0
+	trend_ssh_1, base_		        = polyfit(np.arange(len(time_year)), ssh_all_1[model_i], 1) * 10.0
+	trend_ssh_2, base		        = polyfit(np.arange(len(time_year)), ssh_all_2[model_i], 1) * 10.0
+	trend_ssh_sterodynamic_1, base          = polyfit(np.arange(len(time_year)), ssh_total_1[model_i], 1) * 10.0
+	trend_ssh_sterodynamic_2, base          = polyfit(np.arange(len(time_year)), ssh_total_2[model_i], 1) * 10.0
+	trend_ssh_global, base	                = polyfit(np.arange(len(time_year)), ssh_global_all[model_i], 1) * 10.0
 
 	ssh_trend_all_1[model_i]		= trend_ssh_1
 	ssh_trend_all_2[model_i]		= trend_ssh_2
-	ssh_dynamic_trend_all_1[model_i]	= trend_ssh_dynamic_1
-	ssh_dynamic_trend_all_2[model_i]	= trend_ssh_dynamic_2
+	ssh_sterodynamic_trend_all_1[model_i]	= trend_ssh_sterodynamic_1
+	ssh_sterodynamic_trend_all_2[model_i]	= trend_ssh_sterodynamic_2
 	ssh_global_trend[model_i]	        = trend_ssh_global
 
-	print models[model_i],':', np.round(trend_ssh_global, 1), ssh_dynamic_trend_all_1[model_i] / trend_ssh_global, ssh_dynamic_trend_all_2[model_i] / trend_ssh_global
+	print models[model_i],':', np.round(trend_ssh_global, 1), ssh_sterodynamic_trend_all_1[model_i] / trend_ssh_global, ssh_sterodynamic_trend_all_2[model_i] / trend_ssh_global
 
 #Determine the trend for the HR-CESM and LR-CESM
-trend_ssh_1_cesm, base_ssh_1_cesm				= polyfit(np.arange(len(time_year)), ssh_year_1_cesm, 1) * 10.0
-trend_ssh_2_cesm, base_ssh_2_cesm				= polyfit(np.arange(len(time_year)), ssh_year_2_cesm, 1) * 10.0
-trend_ssh_1_cesm_low, base_ssh_1_cesm_low			= polyfit(np.arange(len(time_year)), ssh_year_1_cesm_low, 1) * 10.0
-trend_ssh_2_cesm_low, base_ssh_2_cesm_low			= polyfit(np.arange(len(time_year)), ssh_year_2_cesm_low, 1) * 10.0
-trend_ssh_dynamic_1_cesm, base_ssh_dynamic_1_cesm		= polyfit(np.arange(len(time_year)), ssh_total_year_1_cesm, 1) * 10.0
-trend_ssh_dynamic_2_cesm, base_ssh_dynamic_2_cesm		= polyfit(np.arange(len(time_year)), ssh_total_year_2_cesm, 1) * 10.0
-trend_ssh_dynamic_1_cesm_low, base_ssh_dynamic_1_cesm_low	= polyfit(np.arange(len(time_year)), ssh_total_year_1_cesm_low, 1) * 10.0
-trend_ssh_dynamic_2_cesm_low, base_ssh_dynamic_2_cesm_low	= polyfit(np.arange(len(time_year)), ssh_total_year_2_cesm_low, 1) * 10.0
+trend_ssh_1_cesm, base				= polyfit(np.arange(len(time_year)), ssh_year_1_cesm, 1) * 10.0
+trend_ssh_2_cesm, base				= polyfit(np.arange(len(time_year)), ssh_year_2_cesm, 1) * 10.0
+trend_ssh_1_cesm_low, base			= polyfit(np.arange(len(time_year)), ssh_year_1_cesm_low, 1) * 10.0
+trend_ssh_2_cesm_low, base			= polyfit(np.arange(len(time_year)), ssh_year_2_cesm_low, 1) * 10.0
+trend_ssh_sterodynamic_1_cesm, base		= polyfit(np.arange(len(time_year)), ssh_total_year_1_cesm, 1) * 10.0
+trend_ssh_sterodynamic_2_cesm, base	        = polyfit(np.arange(len(time_year)), ssh_total_year_2_cesm, 1) * 10.0
+trend_ssh_sterodynamic_1_cesm_low, base	        = polyfit(np.arange(len(time_year)), ssh_total_year_1_cesm_low, 1) * 10.0
+trend_ssh_sterodynamic_2_cesm_low, base	        = polyfit(np.arange(len(time_year)), ssh_total_year_2_cesm_low, 1) * 10.0
 
 #-----------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------------------------
@@ -258,8 +287,8 @@ ax.scatter(ssh_trend_all_1[12], ssh_trend_all_2[12], marker = '2', color = 'k' ,
 ax.scatter(ssh_trend_all_1[13], ssh_trend_all_2[13], marker = '3', color = 'k' , s = 75, label = models[13])
 ax.scatter(ssh_trend_all_1[14], ssh_trend_all_2[14], marker = '4', color = 'k' , s = 75, label = models[14])
 
-ax.set_xlabel('$\eta_M$ trend region 1 (mm year$^{-1}$)')
-ax.set_ylabel('$\eta_M$ trend region 2 (mm year$^{-1}$)')
+ax.set_xlabel('DSL trend region 1 (mm year$^{-1}$)')
+ax.set_ylabel('DSL trend region 2 (mm year$^{-1}$)')
 
 ax.set_xlim(-1.5, 1.5)
 ax.set_ylim(-1.5, 1.5)
@@ -274,7 +303,7 @@ top = bottom + height
 
 ax.legend(loc='upper left', fancybox=True, shadow=False, scatterpoints=1, ncol = 1, frameon = False, prop={'size': 9.6})
 
-ax.set_title('a) $\eta_M$ trends')
+ax.set_title('a) DSL trends')
 
 #-----------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------------------------
@@ -286,36 +315,36 @@ ax.axhline(y = 1.0, xmin = 0.275, xmax = 5, linestyle = '--', color = 'k', linew
 ax.axvline(x = 1.0, linestyle = '--', color = 'k', linewidth = 2.0, alpha = 0.5)
 
 #Normalise the CMIP6 trend to the steric global trend
-ssh_dynamic_trend_all_1 	= ssh_dynamic_trend_all_1 / ssh_global_trend
-ssh_dynamic_trend_all_2 	= ssh_dynamic_trend_all_2 / ssh_global_trend
+ssh_sterodynamic_trend_all_1 	= ssh_sterodynamic_trend_all_1 / ssh_global_trend
+ssh_sterodynamic_trend_all_2 	= ssh_sterodynamic_trend_all_2 / ssh_global_trend
 
-print 'CMIP6 region 1:', np.mean(ssh_dynamic_trend_all_1), np.std(ssh_dynamic_trend_all_1)
-print 'CMIP6 region 2:', np.mean(ssh_dynamic_trend_all_2), np.std(ssh_dynamic_trend_all_2)
+print 'CMIP6 region 1:', np.mean(ssh_sterodynamic_trend_all_1), np.std(ssh_sterodynamic_trend_all_1)
+print 'CMIP6 region 2:', np.mean(ssh_sterodynamic_trend_all_2), np.std(ssh_sterodynamic_trend_all_2)
 
 ax.scatter(trend_ssh_aviso_1 / 3.0, trend_ssh_aviso_2 / 3.0, marker = 'o', color = 'c' , s = 75, label = 'AVISO')
-ax.scatter(trend_ssh_dynamic_1_cesm / trend_ssh_global_cesm, trend_ssh_dynamic_2_cesm / trend_ssh_global_cesm, marker = 'o', color = 'r' , s = 75, label = 'HR-CESM')
-ax.scatter(trend_ssh_dynamic_1_cesm_low / trend_ssh_global_cesm_low, trend_ssh_dynamic_2_cesm_low / trend_ssh_global_cesm_low, marker = 'o', color = 'b' , s = 75, label = 'LR-CESM')
-ax.errorbar(np.mean(ssh_dynamic_trend_all_1), np.mean(ssh_dynamic_trend_all_2), yerr = np.std(ssh_dynamic_trend_all_2), xerr = np.std(ssh_dynamic_trend_all_1), color = 'k') 
-ax.scatter(np.mean(ssh_dynamic_trend_all_1), np.mean(ssh_dynamic_trend_all_2), marker = 'o', color = 'k' , s = 75, label = 'CMIP6 mean + std')
+ax.scatter(trend_ssh_sterodynamic_1_cesm / trend_ssh_global_cesm, trend_ssh_sterodynamic_2_cesm / trend_ssh_global_cesm, marker = 'o', color = 'r' , s = 75, label = 'HR-CESM')
+ax.scatter(trend_ssh_sterodynamic_1_cesm_low / trend_ssh_global_cesm_low, trend_ssh_sterodynamic_2_cesm_low / trend_ssh_global_cesm_low, marker = 'o', color = 'b' , s = 75, label = 'LR-CESM')
+ax.errorbar(np.mean(ssh_sterodynamic_trend_all_1), np.mean(ssh_sterodynamic_trend_all_2), yerr = np.std(ssh_sterodynamic_trend_all_2), xerr = np.std(ssh_sterodynamic_trend_all_1), color = 'k') 
+ax.scatter(np.mean(ssh_sterodynamic_trend_all_1), np.mean(ssh_sterodynamic_trend_all_2), marker = 'o', color = 'k' , s = 75, label = 'CMIP6 mean + std')
 
-ax.scatter(ssh_dynamic_trend_all_1[0], ssh_dynamic_trend_all_2[0], marker = 'p', color = 'k' , s = 75, label = models[0])
-ax.scatter(ssh_dynamic_trend_all_1[1], ssh_dynamic_trend_all_2[1], marker = 'x', color = 'k' , s = 75, label = models[1])
-ax.scatter(ssh_dynamic_trend_all_1[2], ssh_dynamic_trend_all_2[2], marker = '<', color = 'k' , s = 75, label = models[2])
-ax.scatter(ssh_dynamic_trend_all_1[3], ssh_dynamic_trend_all_2[3], marker = 's', color = 'k' , s = 75, label = models[3])
-ax.scatter(ssh_dynamic_trend_all_1[4], ssh_dynamic_trend_all_2[4], marker = 'D', color = 'k' , s = 75, label = models[4])
-ax.scatter(ssh_dynamic_trend_all_1[5], ssh_dynamic_trend_all_2[5], marker = '*', color = 'k' , s = 75, label = models[5])
-ax.scatter(ssh_dynamic_trend_all_1[6], ssh_dynamic_trend_all_2[6], marker = '>', color = 'k' , s = 75, label = models[6])
-ax.scatter(ssh_dynamic_trend_all_1[7], ssh_dynamic_trend_all_2[7], marker = 'h', color = 'k' , s = 75, label = models[7])
-ax.scatter(ssh_dynamic_trend_all_1[8], ssh_dynamic_trend_all_2[8], marker = 'v', color = 'k' , s = 75, label = models[8])
-ax.scatter(ssh_dynamic_trend_all_1[9], ssh_dynamic_trend_all_2[9], marker = 'd', color = 'k' , s = 75, label = models[9])
-ax.scatter(ssh_dynamic_trend_all_1[10], ssh_dynamic_trend_all_2[10], marker = '+', color = 'k' , s = 75, label = models[10])
-ax.scatter(ssh_dynamic_trend_all_1[11], ssh_dynamic_trend_all_2[11], marker = '1', color = 'k' , s = 75, label = models[11])
-ax.scatter(ssh_dynamic_trend_all_1[12], ssh_dynamic_trend_all_2[12], marker = '2', color = 'k' , s = 75, label = models[12])
-ax.scatter(ssh_dynamic_trend_all_1[13], ssh_dynamic_trend_all_2[13], marker = '3', color = 'k' , s = 75, label = models[13])
-ax.scatter(ssh_dynamic_trend_all_1[14], ssh_dynamic_trend_all_2[14], marker = '4', color = 'k' , s = 75, label = models[14])
+ax.scatter(ssh_sterodynamic_trend_all_1[0], ssh_sterodynamic_trend_all_2[0], marker = 'p', color = 'k' , s = 75, label = models[0])
+ax.scatter(ssh_sterodynamic_trend_all_1[1], ssh_sterodynamic_trend_all_2[1], marker = 'x', color = 'k' , s = 75, label = models[1])
+ax.scatter(ssh_sterodynamic_trend_all_1[2], ssh_sterodynamic_trend_all_2[2], marker = '<', color = 'k' , s = 75, label = models[2])
+ax.scatter(ssh_sterodynamic_trend_all_1[3], ssh_sterodynamic_trend_all_2[3], marker = 's', color = 'k' , s = 75, label = models[3])
+ax.scatter(ssh_sterodynamic_trend_all_1[4], ssh_sterodynamic_trend_all_2[4], marker = 'D', color = 'k' , s = 75, label = models[4])
+ax.scatter(ssh_sterodynamic_trend_all_1[5], ssh_sterodynamic_trend_all_2[5], marker = '*', color = 'k' , s = 75, label = models[5])
+ax.scatter(ssh_sterodynamic_trend_all_1[6], ssh_sterodynamic_trend_all_2[6], marker = '>', color = 'k' , s = 75, label = models[6])
+ax.scatter(ssh_sterodynamic_trend_all_1[7], ssh_sterodynamic_trend_all_2[7], marker = 'h', color = 'k' , s = 75, label = models[7])
+ax.scatter(ssh_sterodynamic_trend_all_1[8], ssh_sterodynamic_trend_all_2[8], marker = 'v', color = 'k' , s = 75, label = models[8])
+ax.scatter(ssh_sterodynamic_trend_all_1[9], ssh_sterodynamic_trend_all_2[9], marker = 'd', color = 'k' , s = 75, label = models[9])
+ax.scatter(ssh_sterodynamic_trend_all_1[10], ssh_sterodynamic_trend_all_2[10], marker = '+', color = 'k' , s = 75, label = models[10])
+ax.scatter(ssh_sterodynamic_trend_all_1[11], ssh_sterodynamic_trend_all_2[11], marker = '1', color = 'k' , s = 75, label = models[11])
+ax.scatter(ssh_sterodynamic_trend_all_1[12], ssh_sterodynamic_trend_all_2[12], marker = '2', color = 'k' , s = 75, label = models[12])
+ax.scatter(ssh_sterodynamic_trend_all_1[13], ssh_sterodynamic_trend_all_2[13], marker = '3', color = 'k' , s = 75, label = models[13])
+ax.scatter(ssh_sterodynamic_trend_all_1[14], ssh_sterodynamic_trend_all_2[14], marker = '4', color = 'k' , s = 75, label = models[14])
 
-ax.set_xlabel('Normalised DSL trend region 1')
-ax.set_ylabel('Normalised DSL trend region 2')
+ax.set_xlabel('Normalised SDSL trend region 1')
+ax.set_ylabel('Normalised SDSL trend region 2')
 
 ax.set_xlim(0, 2.0)
 ax.set_ylim(0, 2.0)
@@ -348,7 +377,7 @@ ax.plot(x_square + 1.78, y_square + 1.8, '-k', linewidth = 2.0)
 ax.fill(x_square + 1.78, y_square + 1.8, 'r', alpha = 0.3)
 ax.text(0.1 + 1.78, 0.09 + 1.8, '2', horizontalalignment='center', verticalalignment='center', fontsize = 16)
 
-ax.set_title('b) Normalised DSL trends')
+ax.set_title('b) Normalised SDSL trends')
 
 #-----------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------------------------
@@ -363,7 +392,7 @@ HR_CESM_graph	= ax.plot_date(time_year, ssh_global_cesm_year, '-r', linewidth = 
 LR_CESM_graph	= ax.plot_date(time_year, ssh_global_cesm_low_year, '-b', linewidth = 2.0, label = 'LR-CESM')
 
 ax.set_xlabel('Model year')
-ax.set_ylabel('Sea level anomaly (cm)')
+ax.set_ylabel('Global-mean thermosteric sea-level rise (cm)')
 ax.set_ylim(-1, 25)
 ax.grid()
 
