@@ -1,6 +1,6 @@
 # SR-Caribbean
 
-Ocean Model Resolution Dependence of Caribbean Sea-Level Projections, Scientific Reports (2020, under review)
+Ocean Model Resolution Dependence of Caribbean Sea-Level Projections, Scientific Reports (2020, https://www.nature.com/articles/s41598-020-71563-0)
 
 René M. van Westen, Henk A. Dijkstra and the SCENES Team
 
